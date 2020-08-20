@@ -27,10 +27,37 @@ def equaliza_histograma(img):
         img[img == i] = new_values[i]
     return img
 
+def convolucao(img, M):
+    img2 = np.array(M.shape)
+    row = img.shape[0]
+    col = img.shape[1]
+    x1 = M.shape[0]/2
+    y1 = M.shape[1]/2
+    for x in range(row):
+        for y in range(col):
+            # Se o pixel estiver localizado na borda da imagem
+            if x == 0: 
+                x1 = 0
+            elif x == row-1: 
+                x2 = 0
+            if y == 0: 
+                y1 = 0
+            elif y == col-1:
+                y2 = 0
+
+            # Região de interesse contendo os pixels vizinhos 
+            sample = img[ x-x1:x+x2, y-y1:y+y2]
+
+            # Multiplica a região de interesse pela máscara, pixel a pixel, soma os valores da matriz e atribui ao pixel correspondente na nova imagem
+            img2[x,y] = np.sum( sample*M )
+    return img2
+
+
+
 # Interpreta os argumentos passados via terminal
 parser = argparse.ArgumentParser()
 parser.add_argument('-t', help='option [1, 2, 3, 4]', type=int)
-parser.add_argument('-m', help='mask [3, 5]', type=int)
+parser.add_argument('-m', help='mask, m x m [3, 5, 7, 9, ...]', type=int)
 parser.add_argument('-i', help='image in png format')
 args = parser.parse_args()
 option = args.t

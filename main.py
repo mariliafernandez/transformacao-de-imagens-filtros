@@ -2,66 +2,18 @@ import argparse
 import numpy as np
 import cv2 as cv
 import sys
-
-def calcula_probabilidade(hist):
-    prob = np.zeros( len(hist) )
-    prob = hist/np.sum(hist)
-    return prob
-
-def dist_acumulada(prob):
-    dist = np.zeros( len(prob) )
-    for i in range( len(prob) ):
-        dist[i] = np.sum( prob[0:i+1] )
-    return dist
-
-def equaliza_histograma(img):
-    n_pixels = np.zeros(256)
-    n_min = np.min(img)
-    n_max = np.max(img)
-    for i in range(n_min, n_max+1):
-        n_pixels[i] = np.sum( img == i )
-    p = calcula_probabilidade(n_pixels)
-    d = dist_acumulada(p)
-    new_values = np.round(d * (len(d)-1) )
-    for i in range( len(new_values) ):
-        img[img == i] = new_values[i]
-    return img
-
-def convolucao(img, M):
-    img2 = np.array(M.shape)
-    row = img.shape[0]
-    col = img.shape[1]
-    x1 = M.shape[0]/2
-    y1 = M.shape[1]/2
-    for x in range(row):
-        for y in range(col):
-            # Se o pixel estiver localizado na borda da imagem
-            if x == 0: 
-                x1 = 0
-            elif x == row-1: 
-                x2 = 0
-            if y == 0: 
-                y1 = 0
-            elif y == col-1:
-                y2 = 0
-
-            # Região de interesse contendo os pixels vizinhos 
-            sample = img[ x-x1:x+x2, y-y1:y+y2]
-
-            # Multiplica a região de interesse pela máscara, pixel a pixel, soma os valores da matriz e atribui ao pixel correspondente na nova imagem
-            img2[x,y] = np.sum( sample*M )
-    return img2
-
-
+from transform import *
 
 # Interpreta os argumentos passados via terminal
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', help='option [1, 2, 3, 4]', type=int)
 parser.add_argument('-m', help='mask, m x m [3, 5, 7, 9, ...]', type=int)
 parser.add_argument('-i', help='image in png format')
+parser.add_argument('-t', help='operation number [1, 2, 3, 4]', type=int)
+
 args = parser.parse_args()
-option = args.t
 image = args.i
+m = args.m
+op = args.t
 
 # Abre a imagem em escala de cinza
 img_file = cv.imread(image)
@@ -71,14 +23,39 @@ if img_file is None :
 else: 
     # Converte as cores originais da imagem para tons de cinza e salva a nova imagem em arquivo
     gray = cv.cvtColor(img_file, cv.COLOR_BGR2GRAY)
-    cv.imwrite('input_tons_de_cinza.png', gray)
+    
+    if op == 1:
+        # Equalização do histograma
+        print('\nCalculando equalização do histograma...')
+        eq = equaliza_histograma(gray.copy())
+        nova_imagem('equalizacao', eq)
 
-    if option == 1:
-        result = equaliza_histograma(gray)
-    # elif option == 2:
+    elif op == 2:
+        # Filtro da média
+        print('\nCalculando filtro da média...')
+        mask = np.ones([m, m])
+        mean = convolucao(gray.copy(),mask,'mean')
+        nova_imagem('media', mean)
+    
+    elif op == 3:
+        # Filtro da mediana 
+        print('\nCalculando filtro da mediana...')
+        mask = np.ones([m,m])
+        median = convolucao(gray.copy(), mask, 'median')
+        nova_imagem('median', median)
 
-    cv.imshow('Result', result)
-    cv.waitKey(0)
+    elif op == 4:
+        # Filtro Gaussiano
+        print('\nCalculando filtro gaussiano...')
+        mask_1d = pascal_coef(m)
+        mask_1d.shape=[m,1]
+        mask = np.matmul(mask_1d, mask_1d.T)
+        print('\nMáscara:')
+        print(mask)
+        gauss = convolucao(gray.copy(), mask, 'gaussian')
+        nova_imagem('gaussian', gauss)
 
-# hist={0:1314, 1:3837, 2:5820, 3:4110, 4:2374, 5:921, 6:629, 7:516}
-# hist=np.array([ 1314, 3837, 5820, 4110, 2374, 921, 629, 516 ])
+    else:
+        print('Operação inválida.')
+        sys.exit(0)
+    
